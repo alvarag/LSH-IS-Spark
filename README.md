@@ -8,8 +8,8 @@ For more information about the algorithms based on hashing:
 
 # Parameters
 The parameters of the algorithm are:
-- bucketLength: length of the buckets (numeric, default 1.0).
-- numHashTablesAnd: number of AND tables (numeric, default 10).
-- numHashTablesOr: number of OR tables (numeric, default 4).
-- filter: whether noise filter (LSH-IS-F) is active or not (LSH-IS-S) (boolean, default true).
+- ```bucketLength```: length of the buckets (numeric, default 1.0).
+- ```numHashTablesAnd```: number of AND tables (numeric, default 10).
+- ```numHashTablesOr```: number of OR tables (numeric, default 4).
+- ```filter```: whether noise filter (LSH-IS-F) is active or not (LSH-IS-S) (boolean, default true).
 
