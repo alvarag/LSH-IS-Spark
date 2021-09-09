@@ -108,7 +108,7 @@ class LSHIS @Since("2.4.5") (@Since("2.4.5") override val uid: String)
         .select("hashes", $(labelCol), $(featuresCol))
         .rdd
         .groupBy(_(0))
-        .flatMapValues(if(true) instanceSelectionOnePerBucket else instanceSelectionFilter)
+        .flatMapValues(if($(filter)) instanceSelectionFilter else instanceSelectionOnePerBucket)
         .map(_._2)
     }
 
