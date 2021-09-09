@@ -81,8 +81,16 @@ object ExperimentLauncher {
 
     val inputDataset = args(0)
     val bucketLength = args(1).toInt
-    val numHashTablesAnd = args(2).toInt
-    val numHashTablesOr = args(3).toInt
+    val numHashTablesAndArr = args(2)
+      .split(",")
+      .map(_.trim)
+      .filter(_.length > 0)
+      .map(_.toInt).toArray
+    val numHashTablesOrArr = args(3)
+      .split(",")
+      .map(_.trim)
+      .filter(_.length > 0)
+      .map(_.toInt).toArray
     val cvReps = args(4).toInt
     val cvFolds = args(5).toInt
     val outputPath = args(6)
@@ -92,32 +100,48 @@ object ExperimentLauncher {
 
     val repsFolds = makeFolds(dataset, cvReps, cvFolds, rnd.nextLong)
     val repsTrainTestFolds = trainTestSplits(repsFolds)
+
+    val reduceResults = (res: (Dataset[Row], IndexedSeq[Dataset[Row]]), 
+        part: (Dataset[Row], IndexedSeq[Dataset[Row]])) => {
+      val resBase = res._1
+      val resLSH = res._2
+      val partBase = part._1
+      val partLSH = part._2
+
+      val unionResLSH = (0 until partLSH.length).map{ i =>
+        resLSH(i).union(partLSH(i))
+      }
+
+      (resBase.union(partBase), unionResLSH)
+    }
+
     val (resBase, resLSH) = repsTrainTestFolds.zipWithIndex.map{ case (folds, nrep) =>
       folds.zipWithIndex.map { case ((trainFold, testFold), nfold) =>
         
         val cachedTrainFold = trainFold.cache
-        cachedTrainFold.count // force cache
+        val originalSize = cachedTrainFold.count
         val cachedTestFold = testFold.cache
         cachedTestFold.count // force cache
-        
-        val lshis = new LSHIS()
-          .setBucketLength(bucketLength)
-          .setNumHashTablesAnd(numHashTablesAnd)
-          .setNumHashTablesOr(numHashTablesOr)
-          .setSeed(rnd.nextLong)
-        
-        val init = Instant.now
-        val filteredTrainFold = lshis.transform(cachedTrainFold).cache
-        filteredTrainFold.count
-        val stop = Instant.now
-        val milis = Duration.between(init, stop).toMillis
-        
-        filteredTrainFold.count // force cache
 
         // training models
         val dt = new DecisionTreeClassifier().setSeed(rnd.nextLong)
         val baseDTModel = dt.fit(cachedTrainFold)
-        val lshDTModel = dt.fit(filteredTrainFold)
+        val lshModelsAndSizes = (0 until numHashTablesOrArr.length).map{ i =>
+          val lshis = new LSHIS()
+            .setBucketLength(bucketLength)
+            .setNumHashTablesAnd(numHashTablesAndArr(i))
+            .setNumHashTablesOr(numHashTablesOrArr(i))
+            .setSeed(rnd.nextLong)
+
+            val init = Instant.now
+            val filteredTrainFold = lshis.transform(cachedTrainFold).cache
+            val filteredSize = filteredTrainFold.count
+            val stop = Instant.now
+            val milis = Duration.between(init, stop).toMillis
+            val ret = (dt.fit(filteredTrainFold), filteredSize, milis)
+            filteredTrainFold.unpersist(true)
+            ret
+        }
 
         // predictions
         val baseResults = baseDTModel
@@ -125,41 +149,32 @@ object ExperimentLauncher {
           .select(col("label"), col("prediction"))
           .withColumnRenamed("label", "true")
           .withColumnRenamed("prediction", "predicted")
-          .withColumn("fold", lit(nfold))
-          .withColumn("repetition", lit(nrep)).cache
-        val lshResults = lshDTModel
-          .transform(cachedTestFold)
-          .select(col("label"), col("prediction"))
-          .withColumnRenamed("label", "true")
-          .withColumnRenamed("prediction", "predicted")
-          .withColumn("fold", lit(nfold))
-          .withColumn("repetition", lit(nrep))
-          .withColumn("time", lit(milis)).cache
-
+          .withColumn("repetition", lit(nrep+1))
+          .withColumn("fold", lit(nfold+1))
+          .withColumn("trainSize", lit(originalSize)).cache
+        val lshResults = lshModelsAndSizes.map{ case(model, trainSize, milis) =>
+          model
+            .transform(cachedTestFold)
+            .select(col("label"), col("prediction"))
+            .withColumnRenamed("label", "true")
+            .withColumnRenamed("prediction", "predicted")
+            .withColumn("repetition", lit(nrep+1))
+            .withColumn("fold", lit(nfold+1))
+            .withColumn("trainSize", lit(trainSize))
+            .withColumn("time", lit(milis)).cache
+        }
         cachedTrainFold.unpersist(true)
-        filteredTrainFold.unpersist(true)
         cachedTestFold.unpersist(true)
 
         (baseResults, lshResults)
-      }.reduce{ (res, part) =>
-        val resBase = res._1
-        val resLSH = res._2
-        val partBase = part._1
-        val partLSH = part._2
-
-        (resBase.union(partBase), resLSH.union(partLSH))
-      }
-    }.reduce{ (res, part) =>
-      val resBase = res._1
-      val resLSH = res._2
-      val partBase = part._1
-      val partLSH = part._2
-
-      (resBase.union(partBase), resLSH.union(partLSH))
-    }
+      }.reduce(reduceResults)
+    }.reduce(reduceResults)
 
     resBase.write.csv(outputPath + "/base")
-    resLSH.write.csv(outputPath + "/lsh")
+    (0 until resLSH.length).map{ i =>
+      resLSH(i).write.csv(outputPath + "/lsh_and"+numHashTablesAndArr(i)+"_or"+numHashTablesOrArr(i))
+    }
+    
   }
 
 }
