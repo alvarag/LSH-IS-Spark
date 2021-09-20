@@ -1,15 +1,16 @@
-name          := "lshis"
-version       := "0.0.1"
-organization  := "ubu.admirable"
-licenses      := Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0.html"))
+val sparkVersion = "3.0.1"
 
-scalaVersion  := "2.12.10"
-
-//sbt-spark-package
-spName          := "alvarag/lsh-is-bd"
-sparkVersion    := "3.0.1"
-
-sparkComponents += "mllib"
-
-//include provided dependencies in sbt run task
-run in Compile := Defaults.runTask(fullClasspath in Compile, mainClass in(Compile, run), runner in(Compile, run))
+lazy val root = project
+    .withId("lshis")
+    .in(file("."))
+    .settings(
+        name          := "lshis",
+        organization  := "ubu.admirable",
+        scalaVersion  := "2.12.10",
+        version       := "0.0.1",
+        licenses      := Seq("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0.html")),
+        resolvers     += "Spark Packages Repo" at "https://repos.spark-packages.org",
+        libraryDependencies ++= Seq(
+            "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided"
+        )
+    )
