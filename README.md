@@ -13,3 +13,25 @@ The parameters of the algorithm are:
 - ```numHashTablesOr```: number of OR tables (numeric, default 4).
 - ```filter```: whether noise filter (LSH-IS-F) is active or not (LSH-IS-S) (boolean, default true).
 
+# Examples
+
+Filtering a dataset by using LSH-IS-F.
+
+```bash
+sbt package
+spark-shell --jars target/scala-2.12/lshis_2.12-0.0.1.jar
+```
+
+```scala
+// import
+import org.apache.spark.ml.instance.LSHIS
+
+val df = spark.read.format("libsvm").load(".....").persist
+val lshis = new LSHIS()
+  .setBucketLength(1)
+  .setNumHashTablesAnd(10)
+  .setNumHashTablesOr(4)
+  .setFilter(true)
+  .setSeed(54)
+lshis.transform(df).show
+```
