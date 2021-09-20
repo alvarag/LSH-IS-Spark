@@ -131,7 +131,7 @@ class LSHIS @Since("2.4.5") (@Since("2.4.5") override val uid: String)
       val features = inst(2).asInstanceOf[Vector]
 
       if (!countInsts.contains(label)) {
-        countInsts += (label -> 1)
+        countInsts(label) = countInsts.getOrElse(label, 0) + 1
         instsSelected.append((label, features))
       }
     }
@@ -152,9 +152,9 @@ private def instanceSelectionFilter(hashInstances: Iterable[Row]):
       val features = inst(2).asInstanceOf[Vector]
 
       if (!countInsts.contains(label))
-        candidatesPerClass += ((label, features))
+        candidatesPerClass(label) = features
 
-      countInsts += (label -> 1)
+      countInsts(label) = countInsts.getOrElse(label, 0) + 1
     }
 
     // Select an instance if there is more than one of the same class
