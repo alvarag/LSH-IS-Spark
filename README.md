@@ -1,7 +1,7 @@
 # LSH-IS-Spark
 Spark implementation of LSH Instance Selection algorithms:
 - LSH-IS-S: One instance of each class per bucket is selected.
-- LSH-IS-F: If there is only one instance of a class into the bucket, it is removed.
+- LSH-IS-F: If there is only one instance of a class into the bucket, it is removed (this behaves like a noise filter).
 
 For more information about the algorithms based on hashing:
  **Á. Arnaiz-González, J-F. Díez Pastor, Juan J. Rodríguez, C. García Osorio.** _Instance selection of linear complexity for big data._ Knowledge-Based Systems, 107, 83-95. [doi: 10.1016/j.knosys.2016.05.056](https://doi.org/10.1016/j.knosys.2016.05.056)
